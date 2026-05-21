@@ -76,7 +76,6 @@ val libraryData = listOf(
     LibraryInfo("Reorderable", "Copyright © 2023 Calvin Liang", LICENSE_APACHE_2, "https://github.com/Calvin-LL/Reorderable"),
     LibraryInfo("skinview3d", "Copyright © 2014-2018 Kent Rasmussen; Copyright © 2017-2022 Haowei Wen, Sean Boult and contributors", License(LICENSE_MIT, R.raw.skinview3d_license), "https://github.com/bs-community/skinview3d"),
     LibraryInfo("sora-editor", "Copyright © 1991, 1999 Free Software Foundation, Inc.", License("LGPL-2.1 License", R.raw.sora_editor_license), "https://github.com/Rosemoe/sora-editor"),
-    LibraryInfo("StringFog", "Copyright © 2016-2023, Megatron King", LICENSE_APACHE_2, "https://github.com/MegatronKing/StringFog"),
     LibraryInfo("Terracotta", "Copyright © 2025 Burning_TNT", License(LICENSE_AGPL_3, net.burningtnt.terracotta.R.raw.terracotta_license), "https://github.com/burningtnt/Terracotta"),
     LibraryInfo("XZ for Java", "Copyright © The XZ for Java authors and contributors", License("0BSD License", R.raw.xz_java_license), "https://tukaani.org/xz/java.html")
 )

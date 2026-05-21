@@ -4,15 +4,12 @@ import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
     alias(libs.plugins.hilt)
     id("com.google.devtools.ksp")
     id("kotlinx-serialization")
     id("kotlin-parcelize")
-    id("stringfog")
 }
-apply(plugin = "stringfog")
 
 val zalithPackageName = "com.movtery.zalithlauncher"
 val launcherAPPName = project.findProperty("launcher_app_name") as? String ?: error("The \"launcher_app_name\" property is not set in gradle.properties.")
@@ -41,16 +38,9 @@ fun getKeyFromLocal(envKey: String, fileName: String? = null, default: String? =
     }
 }
 
-configure<com.github.megatronking.stringfog.plugin.StringFogExtension> {
-    implementation = "com.github.megatronking.stringfog.xor.StringFogImpl"
-    fogPackages = arrayOf("$zalithPackageName.info")
-    kg = com.github.megatronking.stringfog.plugin.kg.RandomKeyGenerator()
-    mode = com.github.megatronking.stringfog.plugin.StringFogMode.bytes
-}
-
 android {
     namespace = zalithPackageName
-    compileSdk = 36
+    compileSdk = 37
 
     signingConfigs {
         create("releaseBuild") {
@@ -178,6 +168,9 @@ android {
 kotlin {
     compilerOptions {
         jvmTarget.set(JvmTarget.JVM_17)
+        optIn.addAll(
+            "androidx.compose.material3.ExperimentalMaterial3Api",
+        )
     }
 }
 
@@ -289,7 +282,6 @@ dependencies {
     implementation(libs.lunarcalendar)
     implementation(fileTree(mapOf("dir" to "libs", "include" to listOf("*.jar", "*.aar"))))
     //Safe
-    implementation(libs.stringfog.xor)
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     implementation(libs.sqlcipher.android)
