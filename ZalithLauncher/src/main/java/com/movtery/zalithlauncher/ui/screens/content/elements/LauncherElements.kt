@@ -356,6 +356,7 @@ private fun Modifier.glass(
         .hazeEffect {
             this.inputScale = HazeInputScale.Fixed(inputScale)
             blurEffect {
+                this.blurEnabled = true
                 this.blurRadius = blurDp
                 this.noiseFactor = -1f
                 this.colorEffects = listOf(
