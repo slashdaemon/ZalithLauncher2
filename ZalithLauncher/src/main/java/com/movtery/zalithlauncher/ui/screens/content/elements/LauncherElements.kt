@@ -408,7 +408,7 @@ private fun Modifier.glass(
             fraction = sqrt(t)
         )
         listOf(
-            HazeColorEffect.tint(Color.White.copy(alpha = whiteAlpha), BlendMode.SrcOver),
+            HazeColorEffect.tint(Color.White.copy(alpha = whiteAlpha), BlendMode.Screen),
         )
     }
 
