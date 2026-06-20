@@ -22,9 +22,10 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"/>
     <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS"/>
-    <!-- TBS StreamCraft capture bridge (Phase 4 webcam; Phase 5 adds MEDIA_PROJECTION) -->
+    <!-- TBS StreamCraft capture bridge (Phase 4 webcam + Phase 5 screen-share) -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
 
     <application
         android:name=".ZLApplication"
@@ -156,9 +157,17 @@
             android:name=".capture.CaptureBridgeService"
             android:enabled="true"
             android:exported="false"
+            android:foregroundServiceType="mediaProjection"
             android:process=":game" />
         <activity
             android:name=".capture.CapturePermissionActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:process=":game"
+            android:screenOrientation="sensorLandscape" />
+        <activity
+            android:name=".capture.MediaProjectionRequestActivity"
             android:theme="@android:style/Theme.Translucent.NoTitleBar"
             android:excludeFromRecents="true"
             android:exported="false"
