@@ -16,17 +16,19 @@ import androidx.activity.result.contract.ActivityResultContracts
  */
 class CapturePermissionActivity : ComponentActivity() {
 
+    private var permission: String = Manifest.permission.CAMERA
+
     private val requestPermission =
         registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
-            CaptureBridgeService.instance?.onCameraPermissionResult(granted)
+            CaptureBridgeService.instance?.onPermissionResult(permission, granted)
             finish()
         }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        val permission = intent.getStringExtra(EXTRA_PERMISSION) ?: Manifest.permission.CAMERA
+        permission = intent.getStringExtra(EXTRA_PERMISSION) ?: Manifest.permission.CAMERA
         if (checkSelfPermission(permission) == PackageManager.PERMISSION_GRANTED) {
-            CaptureBridgeService.instance?.onCameraPermissionResult(true)
+            CaptureBridgeService.instance?.onPermissionResult(permission, true)
             finish()
         } else {
             requestPermission.launch(permission)

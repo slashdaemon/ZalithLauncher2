@@ -18,6 +18,11 @@ class CaptureBridgeClient(
     private val socketPath: String,
     private val onStart: (source: Int, w: Int, h: Int, fps: Int) -> Unit,
     private val onStop: (source: Int) -> Unit,
+    // mod→host playback (remote voice + remote screen-share audio). For audio capture sources
+    // (SOURCE_MIC/SOURCE_GAME_AUDIO) onStart carries w=sampleRate, h=channels.
+    private val onPlayOpen: (sink: Int, sampleRate: Int, channels: Int) -> Unit = { _, _, _ -> },
+    private val onPlayClose: (sink: Int) -> Unit = { },
+    private val onPlayFrame: (sink: Int, pcm: ByteArray) -> Unit = { _, _ -> },
 ) {
     @Volatile private var running = false
     @Volatile private var socket: LocalSocket? = null
@@ -77,6 +82,23 @@ class CaptureBridgeClient(
                     Log.i(TAG, "STOP src=$src")
                     onStop(src)
                 }
+                MSG_PLAY_OPEN -> {
+                    val sink = bb.get().toInt() and 0xFF
+                    val rate = bb.int; val ch = bb.int
+                    Log.i(TAG, "PLAY_OPEN sink=$sink ${rate}Hz x$ch")
+                    onPlayOpen(sink, rate, ch)
+                }
+                MSG_PLAY_CLOSE -> {
+                    val sink = bb.get().toInt() and 0xFF
+                    Log.i(TAG, "PLAY_CLOSE sink=$sink")
+                    onPlayClose(sink)
+                }
+                MSG_PLAY_FRAME -> {
+                    val sink = bb.get().toInt() and 0xFF
+                    val pcm = ByteArray(bb.remaining())
+                    bb.get(pcm)
+                    onPlayFrame(sink, pcm)
+                }
                 else -> { /* ignore */ }
             }
         }
@@ -101,6 +123,16 @@ class CaptureBridgeClient(
         write(framed.array())
     }
 
+    /** Send captured audio PCM (mic or game) to the mod. PCM is interleaved s16le. */
+    fun sendAudioFrame(source: Int, sampleRate: Int, channels: Int, pcm: ByteArray, len: Int) {
+        val payloadLen = 1 + 1 + 4 + 4 + len // type, src, rate, ch, pcm
+        val framed = ByteBuffer.allocate(4 + payloadLen).order(ByteOrder.BIG_ENDIAN)
+        framed.putInt(payloadLen)
+        framed.put(MSG_AUDIO_FRAME.toByte()).put(source.toByte()).putInt(sampleRate).putInt(channels)
+            .put(pcm, 0, len)
+        write(framed.array())
+    }
+
     private fun write(bytes: ByteArray) {
         val s = socket ?: return
         synchronized(writeLock) {
@@ -116,15 +148,24 @@ class CaptureBridgeClient(
     companion object {
         const val SOURCE_CAMERA = 0
         const val SOURCE_SCREEN = 1
+        const val SOURCE_MIC = 2
+        const val SOURCE_GAME_AUDIO = 3
+        const val SINK_VOICE = 0
+        const val SINK_STREAM = 1
         const val FORMAT_BGRA = 1
+        const val FORMAT_S16LE = 2
         const val STATE_PENDING = 0
         const val STATE_ACTIVE = 1
         const val STATE_DENIED = 2
         const val STATE_ERROR = 3
         private const val MSG_START = 0x02
         private const val MSG_STOP = 0x03
+        private const val MSG_PLAY_OPEN = 0x04
+        private const val MSG_PLAY_CLOSE = 0x05
         private const val MSG_FRAME = 0x11
         private const val MSG_STATUS = 0x12
+        private const val MSG_AUDIO_FRAME = 0x13
+        private const val MSG_PLAY_FRAME = 0x14
         private const val MAX_MSG = 32 * 1024 * 1024
         private const val TAG = "CaptureBridgeClient"
     }
