@@ -33,6 +33,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.navigation3.runtime.entryProvider
 import androidx.navigation3.ui.NavDisplay
 import com.movtery.zalithlauncher.BuildKeys
@@ -83,13 +84,16 @@ private fun TopBar(
     CompositionLocalProvider(
         LocalContentColor provides contentColor
     ) {
-        Row(
+        Column(
             modifier = modifier,
-            horizontalArrangement = Arrangement.Center
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
         ) {
+            Text(text = BuildKeys.LAUNCHER_NAME)
+            // Required by ZalithLauncher2's GPL terms: unofficial-modified notice shown at startup.
             Text(
-                modifier = Modifier.align(Alignment.CenterVertically),
-                text = BuildKeys.LAUNCHER_NAME
+                text = "Unofficial Modified Versions",
+                fontSize = 11.sp
             )
         }
     }

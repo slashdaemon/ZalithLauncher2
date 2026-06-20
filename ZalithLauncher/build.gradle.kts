@@ -60,7 +60,9 @@ android {
     }
 
     defaultConfig {
-        applicationId = zalithPackageName
+        // TBS fork: distinct applicationId so it installs alongside stock ZalithLauncher.
+        // namespace (Kotlin/R package) intentionally stays com.movtery.zalithlauncher.
+        applicationId = "as.papp.tbs.launcher"
         applicationIdSuffix = ".v2"
         minSdk = 26
         targetSdk = 35
