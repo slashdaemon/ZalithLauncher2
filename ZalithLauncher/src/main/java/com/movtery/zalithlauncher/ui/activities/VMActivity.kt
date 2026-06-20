@@ -385,6 +385,9 @@ class VMActivity : BaseAppCompatActivity(), SurfaceTextureListener, SurfaceHolde
             startService(Intent(this, GameService::class.java))
         }
 
+        //TBS: start the StreamCraft capture bridge (host-side camera/screen → IPC → mod)
+        startService(Intent(this, com.movtery.zalithlauncher.capture.CaptureBridgeService::class.java))
+
         val bundle = intent.extras ?: throw IllegalStateException("Unknown VM launch state!")
 
         vmViewModel.initSession(

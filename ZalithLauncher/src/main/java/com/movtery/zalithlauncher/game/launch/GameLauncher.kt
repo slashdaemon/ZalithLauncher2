@@ -169,6 +169,11 @@ class GameLauncher(
             val dirPath = dir.absolutePath
             put("jna.boot.library.path", dirPath) //覆盖父类添加的jna路径
         }
+
+        // TBS StreamCraft capture bridge: the mod (server) binds this AF_UNIX socket and the host
+        // app's CaptureBridgeService (client) connects to it to stream camera/screen frames in.
+        val ipcDir = File(activity.filesDir, "ipc").apply { mkdirs() }
+        put("streamcraft.capture.socket", File(ipcDir, "capture.sock").absolutePath)
     }
 
     override fun chdir(): String {
