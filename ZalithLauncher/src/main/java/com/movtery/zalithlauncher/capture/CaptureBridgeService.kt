@@ -1,14 +1,26 @@
 package com.movtery.zalithlauncher.capture
 
 import android.Manifest
+import android.app.Activity
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.content.pm.ServiceInfo
+import android.media.projection.MediaProjectionManager
+import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
+import android.util.DisplayMetrics
 import android.util.Log
+import android.view.WindowManager
+import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
+import com.movtery.zalithlauncher.R
+import com.movtery.zalithlauncher.notification.NOTIFICATION_ID_CAPTURE_SERVICE
+import com.movtery.zalithlauncher.notification.NotificationChannelData
 import java.io.File
 
 /**
@@ -23,6 +35,8 @@ class CaptureBridgeService : LifecycleService() {
 
     private var client: CaptureBridgeClient? = null
     private var camera: CameraSource? = null
+    private var screen: ScreenSource? = null
+    private var foregrounded = false
     private val main = Handler(Looper.getMainLooper())
 
     override fun onCreate() {
@@ -45,12 +59,19 @@ class CaptureBridgeService : LifecycleService() {
     }
 
     private fun onStartSource(source: Int, w: Int, h: Int) {
-        if (source == CaptureBridgeClient.SOURCE_CAMERA) main.post { startCamera(w, h) }
-        // SOURCE_SCREEN: Phase 5 (MediaProjection)
+        when (source) {
+            CaptureBridgeClient.SOURCE_CAMERA -> main.post { startCamera(w, h) }
+            CaptureBridgeClient.SOURCE_SCREEN -> main.post { startScreen() }
+        }
     }
 
     private fun onStopSource(source: Int) {
-        if (source == CaptureBridgeClient.SOURCE_CAMERA) main.post { camera?.stop(); camera = null }
+        when (source) {
+            CaptureBridgeClient.SOURCE_CAMERA -> main.post { camera?.stop(); camera = null }
+            CaptureBridgeClient.SOURCE_SCREEN -> main.post {
+                screen?.stop(); screen = null; maybeStopForeground()
+            }
+        }
     }
 
     private var pendingCameraW = 1280
@@ -87,6 +108,95 @@ class CaptureBridgeService : LifecycleService() {
         }
     }
 
+    // ---- screen-share (MediaProjection) ----
+
+    private fun startScreen() {
+        if (screen != null) return
+        client?.sendStatus(CaptureBridgeClient.SOURCE_SCREEN, CaptureBridgeClient.STATE_PENDING,
+            "requesting screen-share consent")
+        MediaProjectionRequestActivity.request(this)
+    }
+
+    /** Called by {@link MediaProjectionRequestActivity} after the screen-capture consent dialog resolves. */
+    fun onScreenConsentResult(resultCode: Int, data: Intent?) {
+        main.post {
+            if (resultCode != Activity.RESULT_OK || data == null) {
+                client?.sendStatus(CaptureBridgeClient.SOURCE_SCREEN, CaptureBridgeClient.STATE_DENIED,
+                    "screen-share consent denied")
+                return@post
+            }
+            if (screen != null) return@post
+            try {
+                // Android 14: a mediaProjection foreground service must be running BEFORE getMediaProjection().
+                startCaptureForeground()
+                val mpm = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
+                val mp = mpm.getMediaProjection(resultCode, data)
+                    ?: throw IllegalStateException("getMediaProjection returned null")
+                val (w, h, dpi) = screenSize()
+                val src = ScreenSource(
+                    mediaProjection = mp,
+                    width = w, height = h, densityDpi = dpi,
+                    onFrame = { fw, fh, bgra -> client?.sendFrame(CaptureBridgeClient.SOURCE_SCREEN, fw, fh, bgra) },
+                    onStopped = { main.post { screen = null; maybeStopForeground() } },
+                )
+                screen = src
+                src.start()
+                client?.sendStatus(CaptureBridgeClient.SOURCE_SCREEN, CaptureBridgeClient.STATE_ACTIVE, "")
+            } catch (e: Exception) {
+                Log.e(TAG, "screen capture start failed", e)
+                screen = null
+                maybeStopForeground()
+                client?.sendStatus(CaptureBridgeClient.SOURCE_SCREEN, CaptureBridgeClient.STATE_ERROR,
+                    e.message ?: "screen capture failed")
+            }
+        }
+    }
+
+    /** Device display size, capped to 1280 on the long edge (even dims) to bound IPC bandwidth. */
+    private fun screenSize(): Triple<Int, Int, Int> {
+        val m = DisplayMetrics()
+        @Suppress("DEPRECATION")
+        (getSystemService(WINDOW_SERVICE) as WindowManager).defaultDisplay.getRealMetrics(m)
+        var w = m.widthPixels
+        var h = m.heightPixels
+        val maxDim = maxOf(w, h)
+        if (maxDim > 1280) {
+            val s = 1280.0 / maxDim
+            w = (w * s).toInt() and 1.inv()
+            h = (h * s).toInt() and 1.inv()
+        }
+        return Triple(w, h, m.densityDpi)
+    }
+
+    private fun startCaptureForeground() {
+        if (foregrounded) return
+        val nm = getSystemService(NotificationManager::class.java)
+        val ch = NotificationChannelData.GAME_SERVICE_CHANNEL
+        if (nm.getNotificationChannel(ch.channelId) == null) {
+            nm.createNotificationChannel(NotificationChannel(ch.channelId, ch.channelName(this), ch.level))
+        }
+        val notification = NotificationCompat.Builder(this, ch.channelId)
+            .setContentTitle(getString(R.string.notification_jvm_running_name))
+            .setOngoing(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setSmallIcon(R.mipmap.ic_launcher)
+            .build()
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            startForeground(NOTIFICATION_ID_CAPTURE_SERVICE, notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PROJECTION)
+        } else {
+            startForeground(NOTIFICATION_ID_CAPTURE_SERVICE, notification)
+        }
+        foregrounded = true
+    }
+
+    private fun maybeStopForeground() {
+        if (foregrounded && screen == null) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            foregrounded = false
+        }
+    }
+
     override fun onBind(intent: Intent): IBinder? {
         super.onBind(intent)
         return null
@@ -94,6 +204,7 @@ class CaptureBridgeService : LifecycleService() {
 
     override fun onDestroy() {
         camera?.stop()
+        screen?.stop()
         client?.stop()
         if (instance === this) instance = null
         super.onDestroy()
