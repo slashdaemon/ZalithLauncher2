@@ -26,6 +26,7 @@
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />
 
     <application
         android:name=".ZLApplication"
@@ -151,13 +152,13 @@
                 android:value="Running the game engine and maintaining game process" />
         </service>
 
-        <!-- TBS StreamCraft capture bridge (Phase 4 webcam). Runs in :game alongside the JVM/mod.
-             Plain service for Phase 4; Phase 5 will make it a mediaProjection foreground service. -->
+        <!-- TBS StreamCraft capture bridge. Runs in :game alongside the JVM/mod. Promotes itself to a
+             foreground service typed mediaProjection (screen + game audio) and/or microphone (voice). -->
         <service
             android:name=".capture.CaptureBridgeService"
             android:enabled="true"
             android:exported="false"
-            android:foregroundServiceType="mediaProjection"
+            android:foregroundServiceType="mediaProjection|microphone"
             android:process=":game" />
         <activity
             android:name=".capture.CapturePermissionActivity"
