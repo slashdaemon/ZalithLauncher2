@@ -192,6 +192,11 @@ dependencies {
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
+    //TBS capture bridge (Phase 4-5): CameraX webcam + LifecycleService host
+    implementation("androidx.lifecycle:lifecycle-service:2.10.0")
+    implementation("androidx.camera:camera-core:1.4.2")
+    implementation("androidx.camera:camera-camera2:1.4.2")
+    implementation("androidx.camera:camera-lifecycle:1.4.2")
     implementation(libs.androidx.lifecycle.viewmodel.ktx)
     implementation(libs.androidx.lifecycle.viewmodel.nav3)
     implementation(libs.androidx.activity.compose)

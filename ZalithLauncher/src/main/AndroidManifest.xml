@@ -22,6 +22,9 @@
     <uses-permission android:name="android.permission.RECORD_AUDIO"/>
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"/>
     <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS"/>
+    <!-- TBS StreamCraft capture bridge (Phase 4 webcam; Phase 5 adds MEDIA_PROJECTION) -->
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
 
     <application
         android:name=".ZLApplication"
@@ -146,6 +149,21 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_TYPE"
                 android:value="Running the game engine and maintaining game process" />
         </service>
+
+        <!-- TBS StreamCraft capture bridge (Phase 4 webcam). Runs in :game alongside the JVM/mod.
+             Plain service for Phase 4; Phase 5 will make it a mediaProjection foreground service. -->
+        <service
+            android:name=".capture.CaptureBridgeService"
+            android:enabled="true"
+            android:exported="false"
+            android:process=":game" />
+        <activity
+            android:name=".capture.CapturePermissionActivity"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:process=":game"
+            android:screenOrientation="sensorLandscape" />
 
         <service
             android:name=".terracotta.TerracottaVPNService"
