@@ -31,3 +31,5 @@ LWJGL/*/build/
 .ampersand/
 
 .vscode/
+
+tbs_launcher.jks
