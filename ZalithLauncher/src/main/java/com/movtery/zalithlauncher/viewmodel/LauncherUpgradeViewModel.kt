@@ -67,6 +67,9 @@ import java.util.concurrent.TimeUnit
 
 private const val TAG = "LauncherUpgradeVM"
 
+/** TBS fork: TBS Launcher releases ship from slashdaemon/TBS-Launcher-Releases, not upstream's feed. */
+private const val TBS_UPSTREAM_UPDATES_DISABLED = true
+
 sealed interface LauncherUpgradeOperation {
     data object None : LauncherUpgradeOperation
     /** 已检查到启动器存在新版本，展示更新信息 */
@@ -123,6 +126,11 @@ class LauncherUpgradeViewModel: ViewModel() {
     fun checkOnAppStart(
         onIsLatest: suspend () -> Unit = {}
     ) {
+        // TBS: the update feed is upstream ZalithLauncher's; offering it would replace this fork.
+        if (TBS_UPSTREAM_UPDATES_DISABLED) {
+            Logger.info(TAG, "App start check: upstream update feed disabled in the TBS fork")
+            return
+        }
         viewModelScope.launch {
             if (
                 isWithinRateLimit(
@@ -159,6 +167,10 @@ class LauncherUpgradeViewModel: ViewModel() {
         onInProgress: suspend () -> Unit = {},
         onIsLatest: suspend () -> Unit = {}
     ): Boolean {
+        if (TBS_UPSTREAM_UPDATES_DISABLED) {
+            onIsLatest()
+            return true
+        }
         return checkMutex.withLock {
             if (
                 isWithinRateLimit(

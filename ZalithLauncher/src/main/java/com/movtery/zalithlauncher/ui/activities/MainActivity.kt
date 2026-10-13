@@ -110,7 +110,9 @@ import com.movtery.zalithlauncher.viewmodel.ScreenBackStackViewModel
 import com.movtery.zalithlauncher.viewmodel.VulkanCheckerViewModel
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Locale
@@ -214,6 +216,8 @@ class MainActivity : BaseAppCompatActivity() {
                 launcherUpgradeViewModel.checkOnAppStart()
             }
         }
+
+        handleTestLaunch(intent)
 
         //错误信息展示
         lifecycleScope.launch {
@@ -525,10 +529,35 @@ class MainActivity : BaseAppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleImportIfNeeded(intent)
+        handleTestLaunch(intent)
         // 重载渲染器
         Renderers.init(true)
         // 重载插件
         PluginLoader.loadAllPlugins(this, true)
+    }
+
+    /**
+     * TBS testkit hook, debug builds only: launch an installed instance by name with the current
+     * account, optionally joining a server, so the PC emulator can be driven over adb without UI
+     * taps. Extras arrive via the debug-only TestLaunchActivity (src/debug).
+     */
+    private fun handleTestLaunch(intent: Intent?) {
+        if (!com.movtery.zalithlauncher.BuildConfig.DEBUG) return
+        val name = intent?.getStringExtra(TEST_EXTRA_INSTANCE) ?: return
+        val server = intent.getStringExtra(TEST_EXTRA_SERVER)
+        intent.removeExtra(TEST_EXTRA_INSTANCE)
+        lifecycleScope.launch {
+            val version = withTimeoutOrNull(60_000L) {
+                VersionsManager.versions.first { list -> list.any { it.getVersionName() == name } }
+            }?.firstOrNull { it.getVersionName() == name }
+            if (version == null) {
+                Logger.warning("TestLaunch", "No installed instance named $name")
+                return@launch
+            }
+            Logger.info("TestLaunch", "Launching $name" + (server?.let { " -> $it" } ?: ""))
+            if (server.isNullOrBlank()) launchGameViewModel.tryLaunch(version)
+            else launchGameViewModel.quickPlayServer(version, server)
+        }
     }
 
     override fun onDestroy() {
@@ -777,3 +806,7 @@ class MainActivity : BaseAppCompatActivity() {
         return super.dispatchKeyEvent(event)
     }
 }
+
+/** Debug-only testkit launch extras (see MainActivity.handleTestLaunch and src/debug TestLaunchActivity). */
+const val TEST_EXTRA_INSTANCE = "tbs_test_instance"
+const val TEST_EXTRA_SERVER = "tbs_test_server"

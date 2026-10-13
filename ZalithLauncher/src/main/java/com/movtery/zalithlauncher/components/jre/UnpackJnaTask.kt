@@ -24,6 +24,8 @@ import com.movtery.zalithlauncher.path.PathManager
 import com.movtery.zalithlauncher.utils.file.extractFromZip
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import com.movtery.zalithlauncher.ZLApplication
+import com.movtery.zalithlauncher.utils.device.Architecture
 import java.io.File
 import java.util.zip.ZipFile
 
@@ -36,9 +38,14 @@ class UnpackJnaTask(context: Context) : UnpackSingleTask(
     override suspend fun moreProgress(file: File) {
         if (file.extension == "zip") {
             withContext(Dispatchers.IO) {
-                ZipFile(file).use { zip ->
-                    //解压 jna 压缩包
-                    zip.extractFromZip("", this@UnpackJnaTask.rootDir)
+                // TBS: only this device's ABI. Upstream unpacked jna-arm64.zip everywhere, so an
+                // x86_64 device (the PC's Android emulator) got arm64 libjnidispatch.so on
+                // jna.boot.library.path and JNA fell back to its desktop glibc build.
+                if (file.name == "jna-${Architecture.archAsString(ZLApplication.DEVICE_ARCHITECTURE)}.zip") {
+                    ZipFile(file).use { zip ->
+                        //解压 jna 压缩包
+                        zip.extractFromZip("", this@UnpackJnaTask.rootDir)
+                    }
                 }
                 file.delete()
             }
