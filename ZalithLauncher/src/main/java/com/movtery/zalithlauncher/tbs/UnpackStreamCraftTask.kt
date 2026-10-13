@@ -35,6 +35,7 @@ class UnpackStreamCraftTask(context: Context) : UnpackSingleTask(
 
         /** The StreamCraft version the staged jar belongs to (the asset's version file). */
         fun stagedVersion(): String? =
-            File(File(PathManager.DIR_COMPONENTS, DIR_NAME), "version").takeIf { it.isFile }?.readText()?.trim()
+            File(File(PathManager.DIR_COMPONENTS, DIR_NAME), "version").takeIf { it.isFile }
+                ?.readLines()?.firstOrNull()?.trim()
     }
 }

@@ -127,7 +127,7 @@ class TbsProvisionViewModel : ViewModel() {
             val target = File(mods, "streamcraft-tbs-$stagedVersion.jar")
             mods.listFiles { f -> f.name.startsWith("streamcraft") && f.name.endsWith(".jar") && f != target }
                 ?.forEach { old -> Logger.info(TAG, "Removing ${old.name}: ${old.delete()}") }
-            if (!target.isFile || target.length() != staged.length()) {
+            if (!target.isFile || target.length() != staged.length() || !target.readBytes().contentEquals(staged.readBytes())) {
                 staged.copyTo(target, overwrite = true)
                 Logger.info(TAG, "StreamCraft $stagedVersion installed into ${profile.instance}")
             }

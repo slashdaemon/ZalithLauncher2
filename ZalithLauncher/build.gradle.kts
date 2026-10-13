@@ -2,6 +2,7 @@ import com.android.build.api.variant.FilterConfiguration.FilterType.ABI
 import com.android.build.api.variant.impl.VariantOutputImpl
 import com.android.build.gradle.tasks.MergeSourceSetFolders
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import java.security.MessageDigest
 
 plugins {
     alias(libs.plugins.android.application)
@@ -166,7 +167,11 @@ val stageStreamCraft = tasks.register("stageStreamCraft") {
             if (!src.isFile) error("StreamCraft $ver for MC $mc not found: $src (build it, or pass -PstreamcraftDir=)")
             src.copyTo(File(out, "streamcraft-android-$abi.jar"), overwrite = true)
         }
-        File(out, "version").writeText(ver)
+        // Line 1: the StreamCraft version. Line 2: a digest of the bundled jars, so a rebuilt jar with
+        // the same version still re-stages on devices (UnpackSingleTask compares the whole file).
+        val digest = MessageDigest.getInstance("SHA-256")
+        out.listFiles { f -> f.extension == "jar" }!!.sortedBy { it.name }.forEach { digest.update(it.readBytes()) }
+        File(out, "version").writeText(ver + "\n" + digest.digest().joinToString("") { "%02x".format(it) }.take(16))
         logger.lifecycle("[stageStreamCraft] StreamCraft $ver (MC $mc) staged")
     }
 }
