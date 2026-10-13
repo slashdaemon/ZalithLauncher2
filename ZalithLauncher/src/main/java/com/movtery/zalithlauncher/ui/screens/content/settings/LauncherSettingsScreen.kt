@@ -225,10 +225,19 @@ fun LauncherSettingsScreen(
 
                     SwitchSettingsCard(
                         modifier = Modifier.fillMaxWidth(),
-                        position = CardPosition.Bottom,
+                        position = CardPosition.Middle,
                         unit = AllSettings.launcherFullScreen,
                         title = stringResource(R.string.settings_launcher_full_screen_title),
                         summary = stringResource(R.string.settings_launcher_full_screen_summary)
+                    )
+
+                    // TBS: the full upstream launcher (downloads, versions, file manager) for troubleshooting.
+                    SwitchSettingsCard(
+                        modifier = Modifier.fillMaxWidth(),
+                        position = CardPosition.Bottom,
+                        unit = AllSettings.tbsShowAllFeatures,
+                        title = "Show all launcher features",
+                        summary = "Off: the launcher only plays The Block Survival. On: game versions, downloads and files, for troubleshooting."
                     )
                 }
             }

@@ -142,6 +142,37 @@ android {
     }
 }
 
+// TBS: the StreamCraft jars bundled in the APK. The version comes from assets/tbs/profile.json; the
+// jars come from StreamCraft's build/release (override with -PstreamcraftDir=...). Both Android
+// variants are staged; the arch cleanup below keeps only the target ABI's jar in an arch build.
+val tbsGeneratedAssets = layout.buildDirectory.dir("generated/tbs-assets")
+val stageStreamCraft = tasks.register("stageStreamCraft") {
+    val profileFile = file("src/main/assets/tbs/profile.json")
+    val scDir = file(project.findProperty("streamcraftDir") as String? ?: "../../../StreamCraft/build/release")
+    inputs.file(profileFile)
+    inputs.dir(scDir).optional()
+    outputs.dir(tbsGeneratedAssets)
+    doLast {
+        val profile = profileFile.readText()
+        fun field(name: String) = Regex("\"$name\"\\s*:\\s*\"([^\"]+)\"").find(profile)?.groupValues?.get(1)
+            ?: error("tbs/profile.json has no \"$name\"")
+        val ver = field("streamcraft")
+        val mc = field("mc")
+        val out = tbsGeneratedAssets.get().dir("tbs/streamcraft").asFile
+        out.deleteRecursively()
+        out.mkdirs()
+        mapOf("arm64" to "android-arm64", "x86_64" to "android-x64").forEach { (abi, token) ->
+            val src = File(scDir, "streamcraft-$token-$ver+mc$mc.jar")
+            if (!src.isFile) error("StreamCraft $ver for MC $mc not found: $src (build it, or pass -PstreamcraftDir=)")
+            src.copyTo(File(out, "streamcraft-android-$abi.jar"), overwrite = true)
+        }
+        File(out, "version").writeText(ver)
+        logger.lifecycle("[stageStreamCraft] StreamCraft $ver (MC $mc) staged")
+    }
+}
+android.sourceSets["main"].assets.srcDir(tbsGeneratedAssets.get().asFile)
+tasks.named("preBuild") { dependsOn(stageStreamCraft) }
+
 androidComponents {
     onVariants { variant ->
         variant.outputs.forEach { output ->
@@ -166,6 +197,12 @@ androidComponents {
                         }
 
                         if (projectArch == "all") return@doLast
+                        // TBS: keep only the target ABI's bundled StreamCraft jar.
+                        File(assetsDir, "tbs/streamcraft").listFiles()?.forEach {
+                            if (it.extension == "jar" && it.name != "streamcraft-android-$projectArch.jar") {
+                                logger.lifecycle("[$tag] delete: $it : ${it.delete()}")
+                            }
+                        }
                         val abi = when (projectArch) {
                             "arm" -> "armeabi-v7a"
                             "arm64" -> "arm64-v8a"

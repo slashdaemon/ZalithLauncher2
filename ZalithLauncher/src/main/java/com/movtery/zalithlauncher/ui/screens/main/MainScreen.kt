@@ -130,6 +130,7 @@ fun MainScreen(
     eventViewModel: EventViewModel,
     modpackImportViewModel: ModpackImportViewModel,
     modifyVersionViewModel: ModifyVersionViewModel,
+    tbsProvisionViewModel: com.movtery.zalithlauncher.tbs.TbsProvisionViewModel,
     submitError: (ErrorViewModel.ThrowableMessage) -> Unit
 ) {
     val tasks by TaskSystem.tasksFlow.collectAsStateWithLifecycle()
@@ -226,6 +227,7 @@ fun MainScreen(
                     eventViewModel = eventViewModel,
                     modpackImportViewModel = modpackImportViewModel,
                     modifyVersionViewModel = modifyVersionViewModel,
+                    tbsProvisionViewModel = tbsProvisionViewModel,
                     submitError = submitError
                 )
 
@@ -407,7 +409,9 @@ private fun <E: TitledNavKey> TopBar(
                     }
                 }
 
-                IconButton(
+                // TBS: files, multiplayer and downloads only with "Show all launcher features".
+                val tbsShowAll = AllSettings.tbsShowAllFeatures.state
+                if (tbsShowAll) IconButton(
                     onClick = openFileManager
                 ) {
                     Icon(
@@ -416,7 +420,7 @@ private fun <E: TitledNavKey> TopBar(
                     )
                 }
 
-                TopBarRailItem(
+                if (tbsShowAll) TopBarRailItem(
                     selected = inMultiplayerScreen,
                     painter = painterResource(R.drawable.ic_group_filled),
                     text = stringResource(R.string.terracotta),
@@ -425,7 +429,7 @@ private fun <E: TitledNavKey> TopBar(
                     },
                 )
 
-                TopBarRailItem(
+                if (tbsShowAll) TopBarRailItem(
                     selected = inDownloadScreen,
                     painter = painterResource(R.drawable.ic_download_2_filled),
                     text = stringResource(R.string.generic_download),
@@ -490,6 +494,7 @@ private fun NavigationUI(
     eventViewModel: EventViewModel,
     modpackImportViewModel: ModpackImportViewModel,
     modifyVersionViewModel: ModifyVersionViewModel,
+    tbsProvisionViewModel: com.movtery.zalithlauncher.tbs.TbsProvisionViewModel,
     submitError: (ErrorViewModel.ThrowableMessage) -> Unit
 ) {
     val backStack = screenBackStackModel.mainScreen.backStack
@@ -526,6 +531,28 @@ private fun NavigationUI(
             popTransitionSpec = rememberTransitionSpec(),
             entryProvider = entryProvider {
                 entry<NormalNavKey.LauncherMain> {
+                    // TBS: the TBS-only home unless Settings → "Show all launcher features" is on.
+                    if (!AllSettings.tbsShowAllFeatures.state) {
+                        val context = androidx.compose.ui.platform.LocalContext.current
+                        com.movtery.zalithlauncher.tbs.TbsHomeScreen(
+                            provisionViewModel = tbsProvisionViewModel,
+                            onSignIn = {
+                                screenBackStackModel.mainScreen.navigateTo(
+                                    screenKey = NormalNavKey.AccountManager(com.movtery.zalithlauncher.ui.screens.content.FirstLoginMenu.MICROSOFT)
+                                )
+                            },
+                            onManageAccount = {
+                                screenBackStackModel.mainScreen.navigateTo(
+                                    screenKey = NormalNavKey.AccountManager(com.movtery.zalithlauncher.ui.screens.content.FirstLoginMenu.NONE)
+                                )
+                            },
+                            onPlay = { version ->
+                                eventViewModel.sendEvent(EventViewModel.Event.Launch.Game(version))
+                            },
+                            onRetrySetup = { tbsProvisionViewModel.ensure(context) }
+                        )
+                        return@entry
+                    }
                     LauncherScreen(
                         backStackViewModel = screenBackStackModel,
                         navigateToVersions = navigateToVersions,

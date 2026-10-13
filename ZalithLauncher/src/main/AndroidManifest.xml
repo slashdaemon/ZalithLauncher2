@@ -24,6 +24,8 @@
     <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS"/>
     <!-- TBS StreamCraft capture bridge (Phase 4 webcam + Phase 5 screen-share) -->
     <uses-permission android:name="android.permission.CAMERA" />
+    <!-- TBS: in-app launcher updates from TBS-Launcher-Releases (tbs/ApkInstaller). -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-feature android:name="android.hardware.camera.any" android:required="false" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PROJECTION" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MICROPHONE" />

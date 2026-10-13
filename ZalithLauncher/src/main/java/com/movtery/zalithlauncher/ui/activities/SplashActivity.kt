@@ -154,6 +154,11 @@ class SplashActivity : BaseAppCompatActivity() {
                 )
             )
         }
+        // TBS: the StreamCraft jar bundled in the APK (see tbs/UnpackStreamCraftTask).
+        val streamCraftTask = com.movtery.zalithlauncher.tbs.UnpackStreamCraftTask(this@SplashActivity)
+        if (!streamCraftTask.isCheckFailed()) {
+            unpackItems.add(InstallableItem("StreamCraft", "StreamCraft for The Block Survival", streamCraftTask))
+        }
         unpackItems.sort()
     }
 

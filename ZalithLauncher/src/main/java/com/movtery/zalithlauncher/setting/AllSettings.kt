@@ -396,6 +396,9 @@ object AllSettings : SettingsRegistry() {
      */
     val launcherFullScreen = boolSetting("launcherFullScreen", true)
 
+    /** TBS: off = the TBS-only launcher (one Play TBS button, no download/version tools). */
+    val tbsShowAllFeatures = boolSetting("tbsShowAllFeatures", false)
+
     /**
      * 持续型节日彩蛋效果
      */

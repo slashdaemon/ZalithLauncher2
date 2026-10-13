@@ -163,6 +163,9 @@ class MainActivity : BaseAppCompatActivity() {
      */
     private val modifyVersionViewModel: ModifyVersionViewModel by viewModels()
 
+    /** TBS: provisions the "TBS" instance (Minecraft + Fabric + bundled StreamCraft). */
+    private val tbsProvisionViewModel: com.movtery.zalithlauncher.tbs.TbsProvisionViewModel by viewModels()
+
     /**
      * 启动器更新状态 ViewModel
      */
@@ -218,6 +221,9 @@ class MainActivity : BaseAppCompatActivity() {
         }
 
         handleTestLaunch(intent)
+
+        // TBS: make sure the TBS instance exists and carries this APK's StreamCraft.
+        if (!AllSettings.tbsShowAllFeatures.getValue()) tbsProvisionViewModel.ensure(this)
 
         //错误信息展示
         lifecycleScope.launch {
@@ -331,6 +337,7 @@ class MainActivity : BaseAppCompatActivity() {
                         eventViewModel = eventViewModel,
                         modpackImportViewModel = modpackImportViewModel,
                         modifyVersionViewModel = modifyVersionViewModel,
+                        tbsProvisionViewModel = tbsProvisionViewModel,
                         submitError = {
                             errorViewModel.showError(it)
                         }
@@ -350,7 +357,12 @@ class MainActivity : BaseAppCompatActivity() {
                         exitActivity = {
                             this@MainActivity.finish()
                         },
-                        ensureVulkanSupported = vulkanCheckerViewModel::ensureSupported,
+                        // TBS: the TBS instance runs on OpenGL; skip the one-time Vulkan Check dialog,
+                        // which interrupts the first Play and reports "not supported" on many devices.
+                        ensureVulkanSupported = { version ->
+                            if (!AllSettings.tbsShowAllFeatures.getValue()) false
+                            else vulkanCheckerViewModel.ensureSupported(version)
+                        },
                         submitError = {
                             errorViewModel.showError(it)
                         },
@@ -506,6 +518,14 @@ class MainActivity : BaseAppCompatActivity() {
                         modifyVersionViewModel.cancel()
                     }
                 )
+
+                // TBS: launcher update download progress
+                com.movtery.zalithlauncher.tbs.ApkDownloadDialog()
+
+                // TBS: instance setup progress / retry
+                com.movtery.zalithlauncher.tbs.TbsProvisionOperation(tbsProvisionViewModel) {
+                    tbsProvisionViewModel.ensure(this@MainActivity)
+                }
 
                 val vcOperation by vulkanCheckerViewModel.vcOperation.collectAsStateWithLifecycle()
                 VulkanChecker(

@@ -38,37 +38,31 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.lifecycle.lifecycleScope
 import com.movtery.zalithlauncher.BuildConfig
 import com.movtery.zalithlauncher.R
 import com.movtery.zalithlauncher.path.GLOBAL_CLIENT
 import com.movtery.zalithlauncher.path.GLOBAL_JSON
-import com.movtery.zalithlauncher.path.URL_PROJECT_INFO
 import com.movtery.zalithlauncher.setting.AllSettings
 import com.movtery.zalithlauncher.ui.components.MarqueeText
 import com.movtery.zalithlauncher.ui.components.SimpleListDialog
 import com.movtery.zalithlauncher.ui.screens.content.elements.DisabledAlpha
 import com.movtery.zalithlauncher.ui.upgrade.UpgradeDialog
 import com.movtery.zalithlauncher.ui.upgrade.UpgradeFilesDialog
-import com.movtery.zalithlauncher.upgrade.GithubContentApi
 import com.movtery.zalithlauncher.upgrade.RemoteData
 import com.movtery.zalithlauncher.upgrade.TooFrequentOperationException
 import com.movtery.zalithlauncher.utils.logging.Logger
 import com.movtery.zalithlauncher.utils.network.safeBodyAsJson
 import com.movtery.zalithlauncher.utils.network.withRetry
-import com.movtery.zalithlauncher.utils.string.decodeBase64
 import io.ktor.client.request.get
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 private const val TAG = "LauncherUpgradeVM"
-
-/** TBS fork: TBS Launcher releases ship from slashdaemon/TBS-Launcher-Releases, not upstream's feed. */
-private const val TBS_UPSTREAM_UPDATES_DISABLED = true
 
 sealed interface LauncherUpgradeOperation {
     data object None : LauncherUpgradeOperation
@@ -79,13 +73,6 @@ sealed interface LauncherUpgradeOperation {
     /** 打开网盘分享 */
     data class OpenCloudDrive(val cloudDrive: RemoteData.CloudDrive) : LauncherUpgradeOperation
 }
-
-/**
- * 最新版本的信息获取源
- */
-private const val LATEST_VERSION = "latest_version_md.json"
-private const val LATEST_API_URL = "$URL_PROJECT_INFO/$LATEST_VERSION"
-private const val LATEST_API_CHINESE_URL = "https://repo.miawa.cn/zalith-info/v2/$LATEST_VERSION"
 
 /**
  * 用于记录启动器更新 ViewModel
@@ -126,11 +113,6 @@ class LauncherUpgradeViewModel: ViewModel() {
     fun checkOnAppStart(
         onIsLatest: suspend () -> Unit = {}
     ) {
-        // TBS: the update feed is upstream ZalithLauncher's; offering it would replace this fork.
-        if (TBS_UPSTREAM_UPDATES_DISABLED) {
-            Logger.info(TAG, "App start check: upstream update feed disabled in the TBS fork")
-            return
-        }
         viewModelScope.launch {
             if (
                 isWithinRateLimit(
@@ -167,10 +149,6 @@ class LauncherUpgradeViewModel: ViewModel() {
         onInProgress: suspend () -> Unit = {},
         onIsLatest: suspend () -> Unit = {}
     ): Boolean {
-        if (TBS_UPSTREAM_UPDATES_DISABLED) {
-            onIsLatest()
-            return true
-        }
         return checkMutex.withLock {
             if (
                 isWithinRateLimit(
@@ -202,31 +180,20 @@ class LauncherUpgradeViewModel: ViewModel() {
      * 从远端获取最新的启动器信息
      */
     private suspend fun fetchRemoteData(): RemoteData? {
+        // TBS: our releases (slashdaemon/TBS-Launcher-Releases), not upstream ZalithLauncher's feed,
+        // which would offer an APK that replaces this fork. Newest non-draft release with an APK wins.
         return withContext(Dispatchers.IO) {
             runCatching {
                 withRetry(logTag = "LauncherUpgrade", maxRetries = 2) {
-                    //获取最新的启动器信息
-                    val api = GLOBAL_CLIENT.get(LATEST_API_URL).safeBodyAsJson<GithubContentApi>()
-                    //需要Base64解密
-                    val contentString = decodeBase64(api.content)
-                    GLOBAL_JSON.decodeFromString(RemoteData.serializer(), contentString)
+                    GLOBAL_CLIENT.get(com.movtery.zalithlauncher.tbs.TBS_RELEASES_API)
+                        .safeBodyAsJson<List<com.movtery.zalithlauncher.tbs.GithubRelease>>()
+                        .filter { !it.draft }
+                        .mapNotNull { it.toRemoteData() }
+                        .maxByOrNull { it.code }
                 }
             }.getOrElse { e ->
-                if (Locale.getDefault().language == "zh") {
-                    runCatching {
-                        Logger.info(TAG, "Check for updates in the Chinese region.")
-                        //在中国地区，可能因为无法访问 Github API 导致获取更新信息失败
-                        withRetry(logTag = "LauncherUpgrade_Chinese", maxRetries = 2) {
-                            GLOBAL_CLIENT.get(LATEST_API_CHINESE_URL).safeBodyAsJson<RemoteData>()
-                        }
-                    }.getOrElse { e ->
-                        Logger.warning(TAG, "Failed to check for launcher upgrade!", e)
-                        null
-                    }
-                } else {
-                    Logger.warning(TAG, "Failed to check for launcher upgrade!", e)
-                    null
-                }
+                Logger.warning(TAG, "Failed to check for launcher upgrade!", e)
+                null
             }
         }
     }
@@ -294,13 +261,20 @@ fun LauncherUpgradeOperation(
             )
         }
         is LauncherUpgradeOperation.SelectApk -> {
+            val context = androidx.compose.ui.platform.LocalContext.current
             UpgradeFilesDialog(
                 data = operation.data,
                 onDismissRequest = {
                     onChanged(LauncherUpgradeOperation.None)
                 },
                 onFileSelected = { file ->
-                    onLinkClick(file.uri)
+                    // TBS: download + verify + system installer, instead of handing the URL to a browser.
+                    val activity = context as? androidx.activity.ComponentActivity
+                    if (activity != null) {
+                        com.movtery.zalithlauncher.tbs.ApkInstaller.start(activity, activity.lifecycleScope, file)
+                    } else {
+                        onLinkClick(file.uri)
+                    }
                     onChanged(LauncherUpgradeOperation.None)
                 }
             )
