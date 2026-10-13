@@ -554,6 +554,10 @@ class MainActivity : BaseAppCompatActivity() {
                 Logger.warning("TestLaunch", "No installed instance named $name")
                 return@launch
             }
+            // Scripted taps need the cursor to follow the finger (click mode), not slide like a touchpad.
+            com.movtery.zalithlauncher.setting.AllSettings.mouseControlMode.save(
+                com.movtery.zalithlauncher.setting.enums.MouseControlMode.CLICK
+            )
             Logger.info("TestLaunch", "Launching $name" + (server?.let { " -> $it" } ?: ""))
             if (server.isNullOrBlank()) launchGameViewModel.tryLaunch(version)
             else launchGameViewModel.quickPlayServer(version, server)
